@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { LogIn, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { storeSupabaseSession } from "@/integrations/supabase-auth-client";
+import { getMyProfile, signInLocal } from "@/lib/staff.functions";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -29,29 +31,23 @@ function AuthoritySignIn() {
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const signIn = useServerFn(signInLocal);
+  const getProfile = useServerFn(getMyProfile);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setHasSession(true);
-    });
-  }, []);
+    getProfile().then(() => setHasSession(true)).catch(() => setHasSession(false));
+  }, [getProfile]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setIsBusy(true);
     setError("");
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (signInError) {
-        setError("That email or password did not match an authority account.");
-        return;
-      }
+      const result = await signIn({ data: { email: email.trim(), password } });
+      storeSupabaseSession(result);
       await navigate({ to: "/authority" });
-    } catch {
-      setError("Sign-in is unavailable right now. Please try again.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Sign-in is unavailable right now. Please try again.");
     } finally {
       setIsBusy(false);
     }

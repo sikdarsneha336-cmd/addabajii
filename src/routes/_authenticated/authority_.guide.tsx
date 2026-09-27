@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, LogOut, ShieldCheck } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { clearSupabaseSession } from "@/integrations/supabase-auth-client";
 
 export const Route = createFileRoute("/_authenticated/authority_/guide")({
   ssr: false,
@@ -34,7 +34,7 @@ function StaffGuide() {
   async function handleSignOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    clearSupabaseSession();
     await navigate({ to: "/auth", replace: true });
   }
 

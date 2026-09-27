@@ -15,7 +15,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { clearSupabaseSession } from "@/integrations/supabase-auth-client";
 import {
   AUTHORITY_STATUSES,
   addReportNote,
@@ -32,7 +32,6 @@ import {
   getMyProfile,
   listStaff,
   removeOfficer,
-  resetOfficerPassword,
   type MyProfile,
   type StaffMember,
 } from "@/lib/staff.functions";
@@ -101,13 +100,13 @@ function formatWhen(value: string) {
 
 function AiSignals({ report }: { report: AuthorityReport }) {
   const analysis = report.analysis ?? {};
-  if (analysis.mode !== "ai") return null;
+  if (analysis.mode !== "simulated") return null;
 
   if (analysis.status === "unavailable") {
     return (
       <div className="mt-5 rounded-xl border border-white/10 bg-[#07131b]/60 p-4 text-sm text-white/55">
         <p className="flex items-center gap-2 font-semibold text-white/75">
-          <Sparkles size={15} className="text-[#d8f06b]" /> AI advisory signals unavailable
+          <Sparkles size={15} className="text-[#d8f06b]" /> Simulated signals unavailable
         </p>
         <p className="mt-1 text-white/50">{analysis.note ?? "AI analysis could not be prepared for this report."}</p>
       </div>
@@ -118,7 +117,7 @@ function AiSignals({ report }: { report: AuthorityReport }) {
   return (
     <div className="mt-5 rounded-xl border border-[#d8f06b]/20 bg-[#d8f06b]/5 p-4 text-sm">
       <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#d8f06b]">
-        <Sparkles size={14} /> AI advisory signals — suggestions only
+        <Sparkles size={14} /> Simulated placeholders — not AI findings
       </p>
       <dl className="mt-3 grid gap-x-8 gap-y-2 text-white/70 sm:grid-cols-2">
         {analysis.classification?.label ? (
@@ -144,7 +143,7 @@ function AiSignals({ report }: { report: AuthorityReport }) {
           <dd className="mt-0.5 text-white/80">
             {duplicates?.assessed && (duplicates.possible_matches?.length ?? 0) > 0
               ? `${duplicates.possible_matches!.length} earlier report(s) may describe the same incident — verify before acting on this signal.`
-              : "No likely matches found among recent reports."}
+              : "Duplicate comparison is not enabled in this project."}
           </dd>
         </div>
       </dl>
@@ -297,12 +296,9 @@ function ReportCard({
 function StaffPanel() {
   const listStaffFn = useServerFn(listStaff);
   const createOfficerFn = useServerFn(createOfficer);
-  const resetPasswordFn = useServerFn(resetOfficerPassword);
   const removeOfficerFn = useServerFn(removeOfficer);
-  const queryClient = useQueryClient();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -341,21 +337,6 @@ function StaffPanel() {
               <p className="text-xs uppercase tracking-[0.12em] text-white/40">{member.role}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    const newPassword = prompt(`Set a new password for ${member.email} (at least 12 characters):`);
-                    if (!newPassword) throw new Error("Password reset cancelled.");
-                    if (newPassword.length < 12) throw new Error("Use at least 12 characters.");
-                    await resetPasswordFn({ data: { userId: member.userId, password: newPassword } });
-                  }, "Password reset.")
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:opacity-40"
-              >
-                <KeyRound size={13} /> Reset password
-              </button>
               {member.role !== "admin" ? (
                 <button
                   type="button"
@@ -382,10 +363,9 @@ function StaffPanel() {
         onSubmit={(event) => {
           event.preventDefault();
           run(async () => {
-            await createOfficerFn({ data: { email, password } });
+            await createOfficerFn({ data: { email } });
             setEmail("");
-            setPassword("");
-          }, "Officer account created. Share the initial password privately.");
+          }, "Staff access recorded. Now invite this person under Supabase Authentication → Users.");
         }}
       >
         <input
@@ -396,20 +376,12 @@ function StaffPanel() {
           placeholder="officer@your-organisation.org"
           className={inputClass}
         />
-        <input
-          type="text"
-          required
-          minLength={12}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Initial password (12+ characters)"
-          className={inputClass}
-          autoComplete="off"
-        />
         <button type="submit" disabled={busy} className={`${primaryButton} shrink-0`}>
-          <UserPlus size={15} /> Add officer
+          <UserPlus size={15} /> Add staff email
         </button>
       </form>
+
+      <p className="mt-3 text-xs leading-5 text-white/45">Passwords and invitations are managed by Supabase. Add the email here first, then invite that same email from the Supabase dashboard.</p>
 
       {message ? <p className="mt-3 text-sm text-lime-200">{message}</p> : null}
       {error ? <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p> : null}
@@ -507,7 +479,7 @@ function AuthorityDesk() {
   async function handleSignOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    clearSupabaseSession();
     await navigate({ to: "/auth", replace: true });
   }
 
@@ -549,7 +521,7 @@ function AuthorityDesk() {
         </div>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
           Reports are anonymous. Review the content, move each one through the workflow, and keep
-          every AI signal advisory — human judgment decides the outcome.
+          all displayed analysis is simulated; human judgment decides the outcome.
         </p>
 
         {isLoading ? (
@@ -596,3 +568,4 @@ function AuthorityDesk() {
     </div>
   );
 }
+

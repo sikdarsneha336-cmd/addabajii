@@ -31,7 +31,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment variables / secrets
+# Commit .env.example as a template; keep real local/deployment secrets out of Git.
 .env
 .env.*
 !.env.example
+clearline.local.json
