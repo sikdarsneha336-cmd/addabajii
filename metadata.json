@@ -1,0 +1,7 @@
+{
+  "name": "AddaBaaji - Civic Vigilance & Anonymous Safety Grid",
+  "description": "Zero-trace anonymous reporting and municipal tactical command to reclaim public spaces from street harassment, predatory loitering, and dark spots.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
